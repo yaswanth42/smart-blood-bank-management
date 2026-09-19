@@ -69,6 +69,10 @@ function App() {
           <Route path="donors" element={<GetAllDonors />} />
           <Route path="facilities" element={<GetAllFacilities />} />
         </Route>
+
+        {/* Fallback Routes */}
+        <Route path="/auth" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
   );
 }
