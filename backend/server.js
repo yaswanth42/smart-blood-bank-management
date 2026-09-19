@@ -18,28 +18,29 @@ app.use(cors({
   credentials: true,
 }));
 
-app.get("/", (req, res) => {
+app.get(["/", "/api"], (req, res) => {
   res.json({ status: "success", message: "Blood Bank Management System Backend API is running 🚀" });
 });
 
-// 🧩 Routes
-
-app.use("/api/auth", authRoutes);
-app.use("/api/donor", donorRoutes);
-app.use("/api/facility", facilityRoutes);
-app.use("/api/admin", adminRoutes);
+// 🧩 Routes (support both /api/path and /path in Vercel serverless routing)
+app.use(["/api/auth", "/auth"], authRoutes);
+app.use(["/api/donor", "/donor"], donorRoutes);
+app.use(["/api/facility", "/facility"], facilityRoutes);
+app.use(["/api/admin", "/admin"], adminRoutes);
 
 import bloodLabRoutes from "./routes/bloodLabRoutes.js";
-app.use("/api/blood-lab", bloodLabRoutes);
+app.use(["/api/blood-lab", "/blood-lab"], bloodLabRoutes);
 
 import hospitalRoutes from "./routes/hospitalRoutes.js";
-app.use("/api/hospital", hospitalRoutes);
+app.use(["/api/hospital", "/hospital"], hospitalRoutes);
 
-// 🗄️ DB Connection
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Connected ✅"))
-  .catch((err) => console.log("MongoDB Error ❌", err));
+// 🗄️ DB Connection (Serverless connection pooling check)
+if (mongoose.connection.readyState === 0 && process.env.MONGO_URI) {
+  mongoose
+    .connect(process.env.MONGO_URI)
+    .then(() => console.log("MongoDB Connected ✅"))
+    .catch((err) => console.log("MongoDB Error ❌", err));
+}
 
 if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
   const PORT = process.env.PORT || 5000;
