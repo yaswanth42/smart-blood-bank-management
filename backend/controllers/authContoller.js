@@ -53,25 +53,35 @@ export const register = async (req, res) => {
  */
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
 
     if (!email || !password)
       return res
         .status(400)
         .json({ message: "Email and password are required" });
 
+    const searchEmail = email.trim().toLowerCase();
+
     // Find user in any model
     let user =
-      (await Donor.findOne({ email }).select("+password")) ||
-      (await Admin.findOne({ email }).select("+password")) ||
-      (await Facility.findOne({ email }).select("+password"));
+      (await Donor.findOne({ email: searchEmail }).select("+password")) ||
+      (await Admin.findOne({ email: searchEmail }).select("+password")) ||
+      (await Facility.findOne({ email: searchEmail }).select("+password"));
+
+    // Fallback: search with case-insensitive regex if exact match failed
+    if (!user) {
+      user =
+        (await Donor.findOne({ email: new RegExp(`^${searchEmail}$`, "i") }).select("+password")) ||
+        (await Admin.findOne({ email: new RegExp(`^${searchEmail}$`, "i") }).select("+password")) ||
+        (await Facility.findOne({ email: new RegExp(`^${searchEmail}$`, "i") }).select("+password"));
+    }
 
     if (!user) {
       console.log(`❌ User not found for email: ${email}`);
       return res.status(404).json({ message: "User not found" });
     }
 
-    console.log(`✅ User found: ${email}, Role: ${user.role}`);
+    console.log(`✅ User found: ${user.email}, Role: ${user.role}`);
 
     // Compare password with trim for consistency
     const isMatch = await bcrypt.compare(password.trim(), user.password);
@@ -83,24 +93,22 @@ export const login = async (req, res) => {
 
     console.log(`✅ Password verified for user: ${email}`);
 
-    // 🚫 If facility not approved yet
     // ✅ If facility not approved yet
     if (user instanceof Facility) {
-      if (user.status === "pending") { // <-- FIXED: Use lowercase "pending"
+      if (user.status === "pending") {
         return res.status(403).json({
           success: false,
           message:
             "Your account is awaiting admin approval. Please wait before logging in.",
         });
       }
-      if (user.status === "rejected") { // <-- FIXED: Use lowercase "rejected"
+      if (user.status === "rejected") {
         return res.status(403).json({
           success: false,
           message:
             "Your registration has been rejected by admin. Contact support for details.",
         });
       }
-      // The code will now only proceed to create a token and redirect if the status is "approved" (or any other value not 'pending' or 'rejected').
     }
 
     // ✅ Create token
@@ -111,17 +119,21 @@ export const login = async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    // Save last login
-    user.lastLogin = new Date();
-    if (user instanceof Facility) {
-      user.history.push({
-        eventType: "Login",
-        description: "Facility logged in successfully",
-        date: new Date(),
-      });
-      if (user.history.length > 50) user.history = user.history.slice(-50);
+    // Save last login non-blockingly
+    try {
+      user.lastLogin = new Date();
+      if (user instanceof Facility) {
+        user.history.push({
+          eventType: "Login",
+          description: "Facility logged in successfully",
+          date: new Date(),
+        });
+        if (user.history.length > 50) user.history = user.history.slice(-50);
+      }
+      await user.save({ validateBeforeSave: false });
+    } catch (saveErr) {
+      console.warn("Could not save lastLogin timestamp:", saveErr.message);
     }
-    await user.save();
 
     // 🎯 Redirect logic
     let redirect = "/";
@@ -134,14 +146,14 @@ export const login = async (req, res) => {
       success: true,
       message: "Login successful",
       token,
-      user: { id: user._id, email: user.email, role: user.role, status: user.status }, // ✅ status added
+      user: { id: user._id, email: user.email, role: user.role, status: user.status },
       redirect,
     });
   } catch (error) {
     console.error("🚨 Login Error:", error);
     res
       .status(500)
-      .json({ message: "Login failed", error: error.message });
+      .json({ message: error.message || "Login failed", error: error.message });
   }
 };
 
