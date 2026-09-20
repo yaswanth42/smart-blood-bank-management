@@ -18,6 +18,26 @@ app.use(cors({
   credentials: true,
 }));
 
+// 🗄️ Database Connection Middleware for Serverless Execution
+let isConnected = false;
+const connectDB = async (req, res, next) => {
+  if (isConnected || mongoose.connection.readyState === 1) {
+    return next();
+  }
+  try {
+    const mongoUri = process.env.MONGO_URI || "mongodb+srv://admin:admin123@login.r8hpvmw.mongodb.net/bbms?appName=login";
+    await mongoose.connect(mongoUri);
+    isConnected = true;
+    console.log("MongoDB Connected ✅");
+    next();
+  } catch (error) {
+    console.error("MongoDB Connection Error ❌:", error);
+    res.status(500).json({ message: "Database connection error", error: error.message });
+  }
+};
+
+app.use(connectDB);
+
 app.get(["/", "/api"], (req, res) => {
   res.json({ status: "success", message: "Blood Bank Management System Backend API is running 🚀" });
 });
@@ -33,14 +53,6 @@ app.use(["/api/blood-lab", "/blood-lab"], bloodLabRoutes);
 
 import hospitalRoutes from "./routes/hospitalRoutes.js";
 app.use(["/api/hospital", "/hospital"], hospitalRoutes);
-
-// 🗄️ DB Connection (Serverless connection pooling check)
-if (mongoose.connection.readyState === 0 && process.env.MONGO_URI) {
-  mongoose
-    .connect(process.env.MONGO_URI)
-    .then(() => console.log("MongoDB Connected ✅"))
-    .catch((err) => console.log("MongoDB Error ❌", err));
-}
 
 if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
   const PORT = process.env.PORT || 5000;

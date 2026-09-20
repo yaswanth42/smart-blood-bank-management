@@ -104,9 +104,10 @@ export const login = async (req, res) => {
     }
 
     // ✅ Create token
+    const jwtSecret = process.env.JWT_SECRET || "BBMS_2026_Auth_7xK9mP2vQ8rL5sN4zT6wY3uA1cD9fG";
     const token = jwt.sign(
       { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
+      jwtSecret,
       { expiresIn: "7d" }
     );
 
