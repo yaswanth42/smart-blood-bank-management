@@ -6,7 +6,8 @@ dotenv.config();
 
 const seedAdmin = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    const mongoUri = process.env.MONGO_URI || "mongodb+srv://admin:admin123@login.r8hpvmw.mongodb.net/bbms?appName=login";
+    await mongoose.connect(mongoUri);
     console.log("MongoDB connected ✅");
     // Remove existing admin with same email
     await Admin.deleteMany({ email: "reddy34yash@gmail.com" });

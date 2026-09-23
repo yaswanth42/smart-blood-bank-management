@@ -83,6 +83,11 @@ export const login = async (req, res) => {
 
     console.log(`✅ User found: ${user.email}, Role: ${user.role}`);
 
+    if (!user.password) {
+      console.log(`❌ Password missing for user: ${email}`);
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
     // Compare password with trim for consistency
     const isMatch = await bcrypt.compare(password.trim(), user.password);
 
